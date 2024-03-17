@@ -1,0 +1,114 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dok</title>
+</head>
+<body>
+    <div id="chatWrapper">
+        <div id="chat">
+            <div id="chatMain">
+            </div>
+        </div>
+        <div id="chatOnlineUsers" class="chat-online-users">
+
+        </div>
+    </div>
+    <div class="chat-msg-row">
+        <p>(<span id="mySocketId">...</span>)</p>
+        <input id="chatMsg" placeholder="Say something" />
+    </div>
+    <button id="sendMsg">Send</button>
+</body>
+</html>
+<script>
+    const sendMsg = document.getElementById("sendMsg");
+    const putHere = document.getElementById("put-here");
+    const socket = new WebSocket("ws://localhost:3006/ws");
+    const chatOnlineUsers = document.getElementById("chatOnlineUsers");
+    const chatMain = document.getElementById("chatMain");
+    const chatMsg = document.getElementById("chatMsg");
+    const mySocketId = document.getElementById("mySocketId");
+    
+    function sendAndClear(el) {
+        if(socket && el.value) {
+            socket.send(el.value);
+            el.value = "";
+            el.focus();
+        }
+    }
+    sendMsg.addEventListener("click", () => sendAndClear(chatMsg));
+    chatMsg.addEventListener("keypress", (k) => {if(k.code == "Enter") sendAndClear(chatMsg)}); 
+
+    socket.addEventListener("message", (msg) => {
+        console.log("Got msg: ", msg);
+        const parsed = tryParseJson(msg.data);
+        if(!parsed._type) {
+            console.error("Got bad msg: ", msg);
+        }
+        if(parsed._type == "open_handshake") mySocketId.innerText = parsed._data
+        if(parsed._type == "new_user") {
+            const newP = document.createElement("p")
+            newP.innerText = parsed._data
+            newP.id = parsed._data;
+            chatOnlineUsers.appendChild(newP)
+        }
+        if(parsed._type == "delete_user") {
+            chatOnlineUsers.removeChild(document.getElementById(parsed._data));
+        }
+        if(parsed._type == "new_msg") {
+            const newP = document.createElement("p")
+            newP.innerText = parsed._data
+            newP.id = parsed._data;
+            chatMain.insertBefore(newP, chatMain.firstChild)
+        }
+    })
+
+    function tryParseJson(s) { try { return JSON.parse(s); } catch { return {} } }
+</script>
+<style>
+    body {
+        padding: 0.25rem;
+    }
+    p {
+        padding: 0;
+        margin: 0;
+    }
+    #chatWrapper {
+        display: flex;
+        flex-flow: row wrap;
+        justify-content: space-between;
+    }
+    #chat {
+        display: flex;
+        flex-flow: row wrap;
+        justify-content: space-between;
+        width: 80%;
+        
+    }
+    #chatMain {
+        display: flex;
+        flex-direction: column-reverse;
+        justify-content: end;
+        height: 18rem;
+        width: 100%;
+        overflow: auto;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+        border: 1px solid lightgrey;
+    }
+    #chatMain::-webkit-scrollbar {
+        display: none;
+    }
+    .chat-msg-row {
+        display: flex;
+        flex-flow: row wrap;
+        gap: 8px;
+        padding-top: 8px;
+    }
+    .chat-online-users {
+        flex-flow: column wrap;
+        width: 10rem;
+        text-align: end;
+    }
+</style>
